@@ -1,6 +1,9 @@
 import asyncio
 import logging
 import json
+import csv
+from datetime import datetime
+from pathlib import Path
 
 import websockets
 import aiohttp
@@ -30,18 +33,50 @@ log = logging.getLogger(__name__)
 current_trade_signal = {"signal": "neutral", "confidence": 0.0}
 last_anomaly_flag    = False
 last_entry_time      = 0.0
-ENTRY_COOLDOWN       = 60  # секунд между входами
+ENTRY_COOLDOWN       = 60
+
+TRADES_FILE = Path("logs/trades.csv")
+
+
+def log_trade(
+    signal: str,
+    price: float,
+    position_size: float,
+    stop_loss: float,
+    confidence: float,
+    z_score: float,
+    order_id: str
+):
+    """Записывает сделку в CSV."""
+    file_exists = TRADES_FILE.exists()
+    with open(TRADES_FILE, "a", newline="") as f:
+        writer = csv.writer(f)
+        if not file_exists:
+            writer.writerow([
+                "timestamp", "signal", "price_entry",
+                "position_size", "stop_loss", "confidence",
+                "z_score", "order_id"
+            ])
+        writer.writerow([
+            datetime.utcnow().isoformat(),
+            signal,
+            round(price, 2),
+            round(position_size, 2),
+            round(stop_loss, 2),
+            round(confidence, 2),
+            round(z_score, 2),
+            order_id
+        ])
+    log.info(f"Сделка записана | {signal.upper()} @ ${price:,.2f}")
 
 
 async def research_task():
-    """Каждые 5 минут обновляет торговый сигнал из новостей."""
     global current_trade_signal
 
     async with aiohttp.ClientSession() as session:
         while True:
             try:
                 log.info("Research: получаем новости...")
-
                 news1 = await fetch_cryptopanic(session)
                 news2 = await fetch_rss(session)
                 fg    = await fetch_fear_greed(session)
@@ -72,7 +107,6 @@ async def research_task():
 
 
 async def scanner_task():
-    """Слушает WebSocket и проверяет условия входа."""
     global last_anomaly_flag, prices, volumes, last_entry_time
 
     WS_MARKET_URL = "wss://stream.binance.com:9443"
@@ -95,7 +129,6 @@ async def scanner_task():
 
                     if anomaly and current_trade_signal["signal"] != "neutral":
 
-                        # Cooldown — не входить чаще раза в 60 секунд
                         now_t = asyncio.get_event_loop().time()
                         if now_t - last_entry_time < ENTRY_COOLDOWN:
                             continue
@@ -118,7 +151,17 @@ async def scanner_task():
                         )
 
                         if decision.allowed:
-                            await execute_signal(signal, decision, state)
+                            result = await execute_signal(signal, decision, state)
+                            if result and result.success:
+                                log_trade(
+                                    signal=signal,
+                                    price=result.price,
+                                    position_size=result.usdt_value,
+                                    stop_loss=decision.stop_loss,
+                                    confidence=confidence,
+                                    z_score=z,
+                                    order_id=result.order_id
+                                )
                         else:
                             log.warning(f"Риск отклонил: {decision.reason}")
 
@@ -128,7 +171,6 @@ async def scanner_task():
 
 
 async def status_task():
-    """Каждые 30 секунд выводит общий статус системы."""
     while True:
         await asyncio.sleep(30)
         state  = load_state()
@@ -145,7 +187,6 @@ async def status_task():
 
 
 async def main():
-    """Запускает все три задачи параллельно."""
     log.info("=" * 50)
     log.info("BTC Trading Bot запущен")
     log.info(f"Режим: {config.MODE} | Символ: {config.SYMBOL}")
