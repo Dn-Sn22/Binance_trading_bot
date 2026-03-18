@@ -38,17 +38,30 @@ last_anomaly = 0.0
 def detect_anomaly(current: float) -> tuple[bool, float, float]:
     if len(prices) < 20:
         return False, 0.0, 0.0
-    arr  = np.array(prices)
-    mean = arr.mean()
-    std  = arr.std()
-    if std == 0:
+
+    arr     = np.array(prices)
+    returns = np.diff(np.log(arr))
+
+    if len(returns) < 10:
         return False, 0.0, 0.0
-    z = (current - mean) / std
-    is_anomaly = abs(z) > 5.0
-    change_pct = ((current - mean) / mean) * 100
+
+    # Долгосрочное окно (все доходности)
+    mean_long = returns.mean()
+    std_long  = returns.std()
+
+    if std_long == 0:
+        return False, 0.0, 0.0
+
+    # Короткое окно — последние 10 тиков
+    recent_return = returns[-10:].mean()
+
+    z = (recent_return - mean_long) / std_long
+    is_anomaly = abs(z) > 2.0
+
+    change_pct = (np.exp(recent_return * 10) - 1) * 100
     return is_anomaly, z, change_pct
-
-
+    
+   
 def print_status(price: float, volume: float, anomaly: bool, z: float, change_pct: float):
     now      = datetime.now().strftime("%H:%M:%S")
     status   = "!! АНОМАЛИЯ" if anomaly else "ок"
