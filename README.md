@@ -1,7 +1,19 @@
 # BTC Trading Bot
 
+> AI-powered Bitcoin trading bot built on Binance. 
+> Combines real-time WebSocket price anomaly detection (Z-score) 
+> with Claude AI news sentiment analysis to generate trade signals.
+> Currently running paper trading on Binance Testnet.
+
+**Stack:** Python 3.11 · Binance API · Claude API · asyncio · Kelly Criterion
+
+---
+
+*(Full documentation in Russian below)*
+
+---
+
 AI-powered торговый бот для BTC/USDT на Binance.
-Построен с нуля студентом за один день как долгосрочный проект.
 
 ## Идея
 
