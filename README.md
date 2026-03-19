@@ -25,19 +25,22 @@ scanner.py   ->  real-time BTC price via WebSocket
                  anomaly detection via Z-score of log returns
 
 research.py  ->  news every 5 minutes
-                 CryptoPanic + CoinTelegraph RSS + Fear & Greed Index
+                 CryptoPanic (auto-disable on rate limit) +
+                 CoinTelegraph RSS + CoinDesk RSS +
+                 Fear & Greed Index
                  sentiment analysis via Claude API (bullish/bearish/neutral)
 
 risk.py      ->  6 levels of capital protection
                  Kelly Criterion for position sizing
                  state saved to risk_state.json
+                 auto-reset positions on bot restart
 
 executor.py  ->  limit order + stop-loss on Binance
                  dry-run mode, no real money spent
 
 main.py      ->  orchestrator for all modules
                  three async tasks running in parallel
-                 logs every trade to logs/trades.csv
+                 logs every trade to logs/trades.xlsx
 ```
 
 ## Risk Parameters
@@ -47,14 +50,25 @@ main.py      ->  orchestrator for all modules
 | Starting balance | $100 |
 | Position size | max 5% of balance |
 | Stop-loss | 8% |
-| Max positions | 3 simultaneously |
+| Max positions | 10 (paper trading) / 3 (live) |
 | Daily loss limit | 10% |
 | Max drawdown | 25% |
-| Entry cooldown | 60 sec |
+| Entry cooldown | 30 sec |
 | Min signal confidence | 0.70 |
 
+## News Sources
+
+| Source | Type | Limit |
+|--------|------|-------|
+| CryptoPanic | Aggregator + community votes | 600/month, auto-disables on limit |
+| CoinTelegraph RSS | Media | Unlimited |
+| CoinDesk RSS | Media | Unlimited |
+| Fear & Greed Index | Market sentiment | Unlimited |
+
 ## Installation
+Requires [Anaconda](https://www.anaconda.com/download) — used for environment management.
 ```bash
+git clone https://github.com/Dn-Sn22/Binance_trading_bot.git
 git clone https://github.com/Dn-Sn22/Binance_trading_bot.git
 cd Binance_trading_bot
 
@@ -64,8 +78,9 @@ conda install pandas numpy -y
 pip install -r requirements.txt
 
 cp .env.example .env
-# Fill .env with your API keys
+# Fill .env file with your API keys
 ```
+
 
 ## Usage
 ```bash
@@ -92,7 +107,7 @@ Binance_trading_bot/
     ├── main.log
     ├── scanner.log
     ├── research.log
-    └── trades.csv       # trade history
+    └── trades.xlsx      # trade history
 ```
 
 ## Module Status
@@ -113,7 +128,9 @@ Binance_trading_bot/
 - Python 3.11 + asyncio
 - Binance WebSocket API
 - Claude API (Anthropic) — sentiment analysis
-- CryptoPanic API — crypto news
+- CryptoPanic API — crypto news aggregator
+- CoinTelegraph + CoinDesk RSS — crypto media
+- Fear & Greed Index — market sentiment
 - Kelly Criterion — capital management
 - Z-score of log returns — anomaly detection
 - Anaconda — environment management
