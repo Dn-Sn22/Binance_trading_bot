@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import json
-import csv
 from datetime import datetime
 from pathlib import Path
 
@@ -33,9 +32,9 @@ log = logging.getLogger(__name__)
 current_trade_signal = {"signal": "neutral", "confidence": 0.0}
 last_anomaly_flag    = False
 last_entry_time      = 0.0
-ENTRY_COOLDOWN       = 60
+ENTRY_COOLDOWN       = 30
 
-TRADES_FILE = Path("logs/trades.csv")
+TRADES_FILE = Path("logs/trades.xlsx")
 
 
 def log_trade(
@@ -47,28 +46,37 @@ def log_trade(
     z_score: float,
     order_id: str
 ):
-    """Записывает сделку в CSV."""
-    file_exists = TRADES_FILE.exists()
-    with open(TRADES_FILE, "a", newline="") as f:
-        writer = csv.writer(f)
-        if not file_exists:
-            writer.writerow([
-                "timestamp", "signal", "price_entry",
-                "position_size", "stop_loss", "confidence",
-                "z_score", "order_id"
-            ])
-        writer.writerow([
-            datetime.utcnow().isoformat(),
-            signal,
-            round(price, 2),
-            round(position_size, 2),
-            round(stop_loss, 2),
-            round(confidence, 2),
-            round(z_score, 2),
-            order_id
-        ])
-    log.info(f"Сделка записана | {signal.upper()} @ ${price:,.2f}")
+    """Записывает сделку в Excel файл."""
+    import openpyxl
 
+    xlsx_file = Path("logs/trades.xlsx")
+
+    if xlsx_file.exists():
+        wb = openpyxl.load_workbook(xlsx_file)
+        ws = wb.active
+    else:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "trades"
+        ws.append([
+            "timestamp", "signal", "price_entry",
+            "position_size", "stop_loss", "confidence",
+            "z_score", "order_id"
+        ])
+
+    ws.append([
+        datetime.utcnow().isoformat(),
+        signal,
+        round(price, 2),
+        round(position_size, 2),
+        round(stop_loss, 2),
+        round(confidence, 2),
+        round(z_score, 2),
+        order_id
+    ])
+
+    wb.save(xlsx_file)
+    log.info(f"Сделка записана | {signal.upper()} @ ${price:,.2f}")
 
 async def research_task():
     global current_trade_signal
@@ -191,6 +199,12 @@ async def main():
     log.info("BTC Trading Bot запущен")
     log.info(f"Режим: {config.MODE} | Символ: {config.SYMBOL}")
     log.info("=" * 50)
+    
+   # Сбрасываем открытые позиции при каждом старте
+    state = load_state()
+    state.open_positions = 0
+    save_state(state)
+    log.info(f"Позиции сброшены | Баланс: ${state.balance:.2f}")
 
     await asyncio.gather(
         research_task(),
