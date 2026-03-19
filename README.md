@@ -21,24 +21,24 @@ Only then **Risk** calculates position size and **Executor** places the order.
 
 ## Architecture
 ```
-scanner.py   ->  real-time BTC price via WebSocket
+scanner.py       real-time BTC price via WebSocket
                  anomaly detection via Z-score of log returns
 
-research.py  ->  news every 5 minutes
+research.py      news every 5 minutes
                  CryptoPanic (auto-disable on rate limit) +
                  CoinTelegraph RSS + CoinDesk RSS +
                  Fear & Greed Index
                  sentiment analysis via Claude API (bullish/bearish/neutral)
 
-risk.py      ->  6 levels of capital protection
+risk.py          6 levels of capital protection
                  Kelly Criterion for position sizing
                  state saved to risk_state.json
                  auto-reset positions on bot restart
 
-executor.py  ->  limit order + stop-loss on Binance
+executor.py      limit order + stop-loss on Binance
                  dry-run mode, no real money spent
 
-main.py      ->  orchestrator for all modules
+main.py          orchestrator for all modules
                  three async tasks running in parallel
                  logs every trade to logs/trades.xlsx
 ```
