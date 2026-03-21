@@ -23,7 +23,7 @@ DAILY_LOSS_LIMIT = 0.10
 
 print(f"[config] Mode: {MODE} | Symbol: {SYMBOL} | Base: {BASE_URL}")
 
-# Kelly параметры
+# Kelly parameters
 WIN_RATE = 0.55
 AVG_WIN  = 0.06
 AVG_LOSS = 0.03

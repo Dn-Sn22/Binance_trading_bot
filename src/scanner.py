@@ -55,15 +55,15 @@ def detect_anomaly(current: float) -> tuple[bool, float, float]:
 
 def print_status(price: float, volume: float, anomaly: bool, z: float, change_pct: float):
     now        = datetime.now().strftime("%H:%M:%S")
-    status     = "!! АНОМАЛИЯ" if anomaly else "ок"
+    status     = "!! ANOMALY" if anomaly else "ok"
     mean_price = np.mean(prices) if len(prices) > 0 else price
     delta_usd  = price - mean_price
     print(
         f"[{now}] "
         f"BTC: ${price:,.2f} | "
-        f"Объём: {volume:.4f} | "
+        f"Volume: {volume:.4f} | "
         f"Z: {z:+.2f} | "
-        f"Изм: {delta_usd:+.2f}$ ({change_pct:+.3f}%) | "
+        f"Change: {delta_usd:+.2f}$ ({change_pct:+.3f}%) | "
         f"{status}"
     )
 
@@ -79,7 +79,7 @@ async def process_tick(data: dict):
         now_t = asyncio.get_event_loop().time()
         if now_t - last_anomaly >= ANOMALY_COOLDOWN:
             last_anomaly = now_t
-            log.warning(f"АНОМАЛИЯ | BTC: ${price:,.2f} | Z: {z:+.2f} | Изм: {change_pct:+.3f}%")
+            log.warning(f"АНОМАЛИЯ | BTC: ${price:,.2f} | Z: {z:+.2f} | Change: {change_pct:+.3f}%")
     now = asyncio.get_event_loop().time()
     if now - last_print >= PRINT_EVERY:
         last_print = now
@@ -87,16 +87,20 @@ async def process_tick(data: dict):
 
 
 async def main():
-    log.info(f"Запуск сканера | {config.MODE} | {WS_URL}")
+    log.info(f"Launching the scanner | {config.MODE} | {WS_URL}")
     while True:
         try:
-            async with websockets.connect(WS_URL) as ws:
+            async with websockets.connect(
+                WS_URL,
+                ping_interval=20,
+                ping_timeout=10
+            ) as ws:
                 log.info("WebSocket подключён")
                 async for message in ws:
                     data = json.loads(message)
                     await process_tick(data)
         except Exception as e:
-            log.error(f"Ошибка соединения: {e} | Переподключение через 5 сек...")
+            log.error(f"Connection loss: {e} | Reconnecting in 5 seconds...")
             await asyncio.sleep(5)
 
 

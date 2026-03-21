@@ -88,7 +88,7 @@ Return ONLY a valid JSON object, no other text, no markdown:
             confidence=float(data.get("confidence", 0.0))
         )
     except Exception as e:
-        log.error(f"Claude анализ ошибка: {e}")
+        log.error(f"Claude analysis error: {e}")
         return None
 
 
@@ -100,9 +100,9 @@ async def fetch_cryptopanic(session: aiohttp.ClientSession) -> list[dict]:
         if cryptopanic_reset_hour is not None and current_hour == 0:
             cryptopanic_available = True
             cryptopanic_reset_hour = None
-            log.info("CryptoPanic: пробуем переподключиться — новый день")
+            log.info("CryptoPanic: trying to reconnect - a new day.")
         else:
-            log.info("CryptoPanic: лимит исчерпан — пропускаем")
+            log.info("CryptoPanic: limit reached - skip")
             return []
 
     params = {
@@ -117,6 +117,9 @@ async def fetch_cryptopanic(session: aiohttp.ClientSession) -> list[dict]:
                 cryptopanic_available = False
                 cryptopanic_reset_hour = datetime.utcnow().hour
                 log.warning("CryptoPanic: лимит 429 — автоотключение")
+                # Import here to avoid circular import
+                from src.telegram_bot import notify_cryptopanic_disabled
+                await notify_cryptopanic_disabled()
                 return []
             resp.raise_for_status()
             data = await resp.json()
@@ -130,7 +133,7 @@ async def fetch_cryptopanic(session: aiohttp.ClientSession) -> list[dict]:
                 for item in results
             ]
     except Exception as e:
-        log.error(f"CryptoPanic ошибка: {e}")
+        log.error(f"CryptoPanic error: {e}")
         return []
 
 
@@ -146,7 +149,7 @@ async def fetch_fear_greed(session: aiohttp.ClientSession) -> dict:
                 "timestamp": datetime.utcnow()
             }
     except Exception as e:
-        log.error(f"Fear & Greed ошибка: {e}")
+        log.error(f"Fear & Greed error: {e}")
         return {"value": 50, "label": "Neutral", "timestamp": datetime.utcnow()}
 
 
@@ -165,7 +168,7 @@ async def fetch_rss(session: aiohttp.ClientSession) -> list[dict]:
                     "source":  source
                 })
         except Exception as e:
-            log.error(f"{source} RSS ошибка: {e}")
+            log.error(f"{source} RSS error: {e}")
     return results
 
 
@@ -205,12 +208,12 @@ def aggregate_signals(signals: list[NewsSignal], fear_greed: dict) -> dict:
 
 
 async def main_loop():
-    log.info("Research агент запущен")
+    log.info("Research agent started")
 
     async with aiohttp.ClientSession() as session:
         while True:
             try:
-                log.info("Research: получаем новости...")
+                log.info("Research: getting news...")
 
                 news1 = await fetch_cryptopanic(session)
                 news2 = await fetch_rss(session)

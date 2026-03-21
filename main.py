@@ -17,6 +17,7 @@ from src.research import aggregate_signals
 from src.research import fetch_cryptopanic, fetch_fear_greed, fetch_rss, analyze_with_claude
 from src.risk import load_state, save_state, check_risk
 from src.executor import execute_signal
+from src.telegram_bot import notify_signal, notify_startup, notify_cryptopanic_disabled
 
 logging.basicConfig(
     level=logging.INFO,
@@ -28,10 +29,12 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-current_trade_signal = {"signal": "neutral", "confidence": 0.0}
+current_trade_signal = {"signal": "neutral", "confidence": 0.0, "fear_greed": {"value": 50, "label": "Neutral"}}
 last_anomaly_flag    = False
 last_entry_time      = 0.0
+last_telegram_time   = 0.0
 ENTRY_COOLDOWN       = 1200
+TELEGRAM_COOLDOWN    = 1800
 
 TRADES_FILE = Path("logs/trades.xlsx")
 
@@ -74,7 +77,7 @@ def log_trade(
     ])
 
     wb.save(xlsx_file)
-    log.info(f"Сделка записана | {signal.upper()} @ ${price:,.2f}")
+    log.info(f"The deal is saved | {signal.upper()} @ ${price:,.2f}")
 
 
 async def research_task():
@@ -83,7 +86,7 @@ async def research_task():
     async with aiohttp.ClientSession() as session:
         while True:
             try:
-                log.info("Research: получаем новости...")
+                log.info("Research: getting news...")
                 news1 = await fetch_cryptopanic(session)
                 news2 = await fetch_rss(session)
                 fg    = await fetch_fear_greed(session)
@@ -98,23 +101,24 @@ async def research_task():
                     if signal:
                         signals.append(signal)
 
-                trade_signal         = aggregate_signals(signals, fg)
-                current_trade_signal = trade_signal
+                trade_signal             = aggregate_signals(signals, fg)
+                trade_signal["fear_greed"] = fg
+                current_trade_signal     = trade_signal
 
                 log.info(
-                    f"Research итог: {trade_signal['signal'].upper()} | "
-                    f"Уверенность: {trade_signal['confidence']} | "
+                    f"Research result: {trade_signal['signal'].upper()} | "
+                    f"Confidence: {trade_signal['confidence']} | "
                     f"Fear&Greed: {fg['value']} ({fg['label']})"
                 )
 
             except Exception as e:
-                log.error(f"Research ошибка: {e}")
+                log.error(f"Research error: {e}")
 
             await asyncio.sleep(300)
 
 
 async def scanner_task():
-    global last_anomaly_flag, prices, volumes, last_entry_time
+    global last_anomaly_flag, prices, volumes, last_entry_time, last_telegram_time
 
     WS_MARKET_URL = "wss://stream.binance.com:9443"
     SYMBOL        = config.SYMBOL.lower()
@@ -124,7 +128,11 @@ async def scanner_task():
 
     while True:
         try:
-            async with websockets.connect(WS_URL) as ws:
+            async with websockets.connect(
+                WS_URL,
+                ping_interval=20,
+                ping_timeout=10
+            ) as ws:
                 log.info("Scanner: WebSocket подключён")
                 async for message in ws:
                     data  = json.loads(message)
@@ -172,8 +180,22 @@ async def scanner_task():
                         else:
                             log.warning(f"Риск отклонил: {decision.reason}")
 
+                        # Telegram regardless of position - once an hour
+                        now_tg = asyncio.get_event_loop().time()
+                        if now_tg - last_telegram_time >= TELEGRAM_COOLDOWN:
+                            last_telegram_time = now_tg
+                            await notify_signal(
+                                signal=signal,
+                                price=price,
+                                stop_loss=decision.stop_loss,
+                                z_score=z,
+                                confidence=confidence,
+                                fear_greed_value=current_trade_signal["fear_greed"]["value"],
+                                fear_greed_label=current_trade_signal["fear_greed"]["label"]
+                            )
+
         except Exception as e:
-            log.error(f"Scanner ошибка: {e} | Переподключение через 5 сек...")
+            log.error(f"Scanner error: {e} | Reconnecting in 5 seconds...")
             await asyncio.sleep(5)
 
 
@@ -184,25 +206,27 @@ async def status_task():
         signal = current_trade_signal
 
         log.info(
-            f"[СТАТУС] "
-            f"Баланс: ${state.balance:.2f} | "
-            f"Позиций: {state.open_positions} | "
-            f"Сделок: {state.total_trades} | "
-            f"Сигнал: {signal['signal'].upper()} | "
-            f"Аномалия: {last_anomaly_flag}"
+            f"[STATUS] "
+            f"Balance: ${state.balance:.2f} | "
+            f"Positions: {state.open_positions} | "
+            f"Deals: {state.total_trades} | "
+            f"Signal: {signal['signal'].upper()} | "
+            f"Anomaly: {last_anomaly_flag}"
         )
 
 
 async def main():
     log.info("=" * 50)
-    log.info("BTC Trading Bot запущен")
-    log.info(f"Режим: {config.MODE} | Символ: {config.SYMBOL}")
+    log.info("BTC Trading Bot active")
+    log.info(f"Mode: {config.MODE} | Symbol: {config.SYMBOL}")
     log.info("=" * 50)
 
     state = load_state()
     state.open_positions = 0
     save_state(state)
-    log.info(f"Позиции сброшены | Баланс: ${state.balance:.2f}")
+    log.info(f"Positions reset | Balance: ${state.balance:.2f}")
+
+    await notify_startup(config.MODE, state.balance)
 
     await asyncio.gather(
         research_task(),

@@ -39,7 +39,7 @@ class OrderResult:
 
 
 def get_client() -> Client:
-    """Возвращает глобальный Binance клиент."""
+    """Returns the global Binance client."""
     global _client
     if _client is None:
         if config.MODE == "testnet":
@@ -50,21 +50,21 @@ def get_client() -> Client:
             )
         else:
             _client = Client(config.API_KEY, config.API_SECRET)
-        log.info(f"Binance клиент создан | Режим: {config.MODE}")
+        log.info(f"Binance client created | Mode: {config.MODE}")
     return _client
 
 def get_current_price(client: Client) -> float:
-    """Получает текущую цену BTC/USDT."""
+    """Gets the current BTC/USDT price."""
     try:
         ticker = client.get_symbol_ticker(symbol=config.SYMBOL)
         return float(ticker["price"])
     except Exception as e:
-        log.error(f"Ошибка получения цены: {e}")
+        log.error(f"Error getting price: {e}")
         return 0.0
 
 
 def get_step_size(client: Client) -> float:
-    """Получает минимальный шаг количества для BTC/USDT."""
+    """Gets the minimum amount step for BTC/USDT."""
     try:
         info = client.get_exchange_info()
         for symbol in info["symbols"]:
@@ -73,12 +73,12 @@ def get_step_size(client: Client) -> float:
                     if f["filterType"] == "LOT_SIZE":
                         return float(f["stepSize"])
     except Exception as e:
-        log.error(f"LOT_SIZE ошибка: {e}")
+        log.error(f"LOT_SIZE error: {e}")
     return 0.000001  # fallback
 
 
 def calculate_quantity(usdt_amount: float, price: float, step_size: float = 0.000001) -> float:
-    """Считает количество BTC с учётом LOT_SIZE."""
+    """Calculates the amount of BTC based on LOT_SIZE."""
     if price == 0:
         return 0.0
     raw      = usdt_amount / price
@@ -87,21 +87,21 @@ def calculate_quantity(usdt_amount: float, price: float, step_size: float = 0.00
 
 
 async def check_balance(client: Client, usdt_amount: float) -> bool:
-    """Проверяет достаточно ли USDT на балансе."""
+    """Checks if there is enough USDT on the balance."""
     try:
         balance   = client.get_asset_balance(asset="USDT")
         free_usdt = float(balance["free"])
-        required  = usdt_amount * 1.01  # +1% на комиссию
+        required  = usdt_amount * 1.01  # +1% to commission
         if free_usdt < required:
             log.error(
-                f"Недостаточно USDT | "
-                f"Нужно: ${required:.2f} | "
-                f"Доступно: ${free_usdt:.2f}"
+                f"Not enough USDT | "
+                f"Need: ${required:.2f} | "
+                f"Available: ${free_usdt:.2f}"
             )
             return False
         return True
     except Exception as e:
-        log.error(f"Ошибка проверки баланса: {e}")
+        log.error(f"Balance check error: {e}")
         return False
 
 
@@ -111,7 +111,7 @@ async def place_stop_loss(
     quantity: float,
     stop_price: float
 ):
-    """Выставляет стоп-лосс ордер после основного."""
+    """Places a stop-loss order after the main one."""
     if DRY_RUN:
         log.info(
             f"[DRY-RUN] STOP-LOSS {side.value} | "
@@ -130,9 +130,9 @@ async def place_stop_loss(
             stopPrice=str(round(stop_price, 2)),
             timeInForce="GTC"
         )
-        log.info(f"Стоп-лосс выставлен | ID: {order['orderId']} | ${stop_price:,.2f}")
+        log.info(f"Stop loss is set | ID: {order['orderId']} | ${stop_price:,.2f}")
     except Exception as e:
-        log.error(f"Стоп-лосс ошибка: {e}")
+        log.error(f"Stop loss error: {e}")
 
 
 async def place_order(
@@ -142,7 +142,7 @@ async def place_order(
     price: float,
     stop_loss: float
 ) -> OrderResult:
-    """Выставляет лимитный ордер + стоп-лосс."""
+    """Places a limit order + stop loss."""
 
     step_size = get_step_size(client)
     quantity  = calculate_quantity(usdt_amount, price, step_size)
@@ -153,7 +153,7 @@ async def place_order(
             side=side.value, price=price,
             quantity=0.0, usdt_value=0.0,
             dry_run=DRY_RUN,
-            reason="Количество равно нулю"
+            reason="Quantity is zero"
         )
 
     # Dry-run
@@ -164,9 +164,9 @@ async def place_order(
         log.info(
             f"[DRY-RUN] {side.value} | "
             f"{quantity} BTC | "
-            f"Цена: ${price:,.2f} | "
-            f"Сумма: ${usdt_amount:.2f} | "
-            f"Стоп: ${stop_loss:,.2f}"
+            f"Price: ${price:,.2f} | "
+            f"Sum: ${usdt_amount:.2f} | "
+            f"Stop: ${stop_loss:,.2f}"
         )
         await place_stop_loss(client, stop_side, quantity, stop_loss)
 
@@ -177,7 +177,7 @@ async def place_order(
             dry_run=True
         )
 
-    # Реальный ордер
+    # Real order
     try:
         order    = client.create_order(
             symbol=config.SYMBOL,
@@ -191,7 +191,7 @@ async def place_order(
         stop_side = OrderSide.SELL if side == OrderSide.BUY else OrderSide.BUY
 
         log.info(
-            f"Ордер выставлен | ID: {order_id} | "
+            f"Order placed | ID: {order_id} | "
             f"{side.value} {quantity} BTC @ ${price:,.2f}"
         )
 
@@ -204,7 +204,7 @@ async def place_order(
             dry_run=False
         )
     except BinanceAPIException as e:
-        log.error(f"Binance ошибка: {e}")
+        log.error(f"Binance error: {e}")
         return OrderResult(
             success=False, order_id="",
             side=side.value, price=price,
@@ -218,17 +218,17 @@ async def execute_signal(
     decision: RiskDecision,
     state: RiskState
 ) -> OrderResult | None:
-    """Принимает сигнал, проверяет баланс, выставляет ордер."""
+    """Receives a signal, checks the balance, places an order."""
 
     if not decision.allowed:
-        log.warning(f"Ордер отклонён: {decision.reason}")
+        log.warning(f"Order cancelled.: {decision.reason}")
         return None
 
     client = get_client()
     price  = get_current_price(client)
 
     if price == 0:
-        log.error("Не удалось получить цену — ордер отменён")
+        log.error("Unable to obtain price - order cancelled")
         return None
 
     if not DRY_RUN:
@@ -248,9 +248,9 @@ async def execute_signal(
         state.open_positions += 1
         save_state(state)
         log.info(
-            f"Позиция открыта | {side.value} | "
+            f"Position is open | {side.value} | "
             f"${result.usdt_value:.2f} @ ${result.price:,.2f} | "
-            f"Стоп: ${decision.stop_loss:,.2f} | "
+            f"Stop: ${decision.stop_loss:,.2f} | "
             f"ID: {result.order_id}"
         )
 
@@ -260,7 +260,7 @@ async def execute_signal(
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
-    print("\n--- Тест executor.py ---")
+    print("\n--- Test executor.py ---")
 
     state    = load_state()
     decision = RiskDecision(
@@ -275,16 +275,16 @@ if __name__ == "__main__":
 
     if result:
         print(
-            f"Ордер: {result.side} | "
-            f"Кол-во: {result.quantity} BTC | "
-            f"Сумма: ${result.usdt_value:.2f} | "
+            f"Order: {result.side} | "
+            f"Quantity: {result.quantity} BTC | "
+            f"Sum: ${result.usdt_value:.2f} | "
             f"Dry-run: {result.dry_run}"
         )
 
-    print("\n--- Тест баланса ---")
+    print("\n--- Balance Test ---")
     client = get_client()
     try:
         balance = client.get_asset_balance(asset="USDT")
-        print(f"USDT доступно: ${float(balance['free']):.2f}")
+        print(f"USDT available: ${float(balance['free']):.2f}")
     except Exception as e:
-        print(f"Ошибка баланса: {e}")
+        print(f"Balance Error: {e}")
