@@ -220,7 +220,7 @@ The bot will start 3 concurrent async tasks: price scanning, news research, and 
 
 ### Long-Term Vision
 
-Demiurg is the foundation of a larger platform:
+BTB is the foundation of a larger platform:
 
 - [ ] **Multi-strategy engine** — Modular strategy switching: swing, scalping, mean-reversion, momentum
 - [ ] **Multi-asset expansion** — ETH, SOL, and top-cap altcoins alongside BTC
