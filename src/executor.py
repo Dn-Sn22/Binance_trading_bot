@@ -12,12 +12,13 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 from src.risk import RiskDecision, RiskState, load_state, save_state
+from src.position_monitor import add_position
 
 log = logging.getLogger(__name__)
 
 DRY_RUN = True
 
-# Глобальный клиент
+
 _client = None
 
 
@@ -230,7 +231,9 @@ async def execute_signal(
     signal: str,
     decision: RiskDecision,
     state: RiskState,
-    price: float = 0.0          # ← принимаем цену из WebSocket
+    price: float = 0.0,
+    z_score: float = 0.0,
+    confidence: float = 0.0
 ) -> OrderResult | None:
     """Receives a signal, checks the balance, places an order."""
 
@@ -240,7 +243,7 @@ async def execute_signal(
 
     client = get_client()
 
-    # Используем цену из WebSocket если передана, иначе REST с retry
+    
     if price <= 0:
         log.warning("WebSocket price not provided — falling back to REST with retry")
         price = await get_price_with_retry(client)
@@ -267,10 +270,22 @@ async def execute_signal(
     if result.success:
         state.open_positions += 1
         save_state(state)
+
+        # Save position for exit monitor
+        add_position(
+            order_id=result.order_id,
+            signal=signal,
+            price_entry=price,
+            position_size=decision.position_size,
+            stop_loss=decision.stop_loss,
+            z_score=z_score,
+            confidence=confidence
+        )
+
         log.info(
             f"Position is open | {side.value} | "
             f"${result.usdt_value:.2f} @ ${result.price:,.2f} | "
-            f"Stop: ${decision.stop_loss:,.2f} | "
+            f"TP: +5% | Stop: ${decision.stop_loss:,.2f} | "
             f"ID: {result.order_id}"
         )
 

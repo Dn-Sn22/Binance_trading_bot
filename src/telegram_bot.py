@@ -40,19 +40,17 @@ async def notify_signal(
     fear_greed_label: str
 ):
     """Уведомление о входе в сделку."""
-    direction = "BULLISH 📈" if signal == "bullish" else "BEARISH 📉"
+    direction = "BULLISH" if signal == "bullish" else "BEARISH"
 
     text = (
         f"Господин, ваш слуга обнаружил благоприятную возможность.\n\n"
         
         f"📊 BTC/USDT — {direction}\n"
-        f"💰 Цена входа: ${price:,.2f}\n"
+        f"Цена входа: ${price:,.2f}\n"
         f"Стоп-лосс: ${stop_loss:,.2f}\n"
         f"Z-score: {z_score:+.2f}\n"
         f"Уверенность: {confidence}\n"
         f"Fear & Greed: {fear_greed_value} ({fear_greed_label})\n\n"
-        f"Как и предусмотрено вашей мудростью, позиция открыта.\n"
-        f"Браво, господин. Ваш план безупречен."
     )
     await send_message(text)
 
@@ -73,5 +71,42 @@ async def notify_startup(mode: str, balance: float):
         f" Режим: {mode.upper()}\n"
         f" Баланс: ${balance:.2f}\n\n"
         f"Слежение за рынком начато. Ваш слуга бдит."
+    )
+    await send_message(text)
+    
+    
+async def notify_position_closed(
+    signal: str,
+    entry_price: float,
+    exit_price: float,
+    pnl: float,
+    pct: float,
+    reason: str,
+    order_id: str
+):
+   
+   
+    """Уведомление о закрытии позиции."""
+    direction = "BULLISH" if signal == "bullish" else "BEARISH"
+    
+    text = (
+        f"Позиция закрыта\n\n"
+        f" {direction}\n"
+        f"Вход: ${entry_price:,.2f}\n"
+        f"Выход: ${exit_price:,.2f}\n"
+        f"PnL: {pct:+.2f}% (${pnl:+.4f})\n"
+        f" Причина: {'Тейк-профит' if 'TP' in reason else ('Стоп-лосс' if 'SL' in reason else ('Таймаут 12ч' if 'Time limit' in reason else 'Реверс сигнала'))}\n"
+        f"ID: {order_id}\n\n"
+        f"Как и предусмотрено вашей мудростью, позиция закрыта."
+    )
+    await send_message(text)
+
+async def notify_shutdown(balance: float, open_positions: int, total_trades: int):
+    """Notification on bot shutdown (Ctrl+C)."""
+    text = (
+        f"Остановка работы бота (KeyboardInterrupt).\n\n"
+        f"Баланс: ${balance:.2f}\n"
+        f"Открытые позиции: {open_positions}\n"
+        f"Всего сделок: {total_trades}"
     )
     await send_message(text)

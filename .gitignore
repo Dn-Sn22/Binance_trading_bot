@@ -18,3 +18,7 @@ logs/
 # Windows
 Thumbs.db
 desktop.ini
+
+# Runtime state
+risk_state.json
+positions.json
