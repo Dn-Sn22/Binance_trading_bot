@@ -19,7 +19,7 @@
 
 ## Overview
 
-Demiurg is a fully autonomous BTC/USDT swing trading bot that runs 24/7 on Binance. It fuses two independent signal streams — a **statistical price anomaly detector** (Z-score on log returns) and a **multi-source AI sentiment engine** (Claude API + live crypto news) — into a single high-confidence entry signal, with a layered risk management system protecting capital at every step.
+BTB is a fully autonomous BTC/USDT swing trading bot that runs 24/7 on Binance. It fuses two independent signal streams — a **statistical price anomaly detector** (Z-score on log returns) and a **multi-source AI sentiment engine** (Claude API + live crypto news) — into a single high-confidence entry signal, with a layered risk management system protecting capital at every step.
 
 The project is currently in **paper trading validation phase** on Binance Testnet, accumulating a 70–100 trade dataset for statistical backtesting and parameter optimization. The target benchmark is Binance's native swing bots — with a roadmap toward a multi-strategy, multi-asset platform.
 
