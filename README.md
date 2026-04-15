@@ -1,6 +1,10 @@
 <div align="center">
 
-# Binance Trading Bot
+# RegimeLab
+
+![Research](https://img.shields.io/badge/Research-Driven-0A7E8C?style=flat-square)
+![Validation](https://img.shields.io/badge/Validation-Walk--Forward%20Tested-1F6FEB?style=flat-square)
+
 
 ### Research-Driven BTC/USDT Trading System with Async Infrastructure, Risk Controls, and ML Roadmap
 
