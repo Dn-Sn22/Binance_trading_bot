@@ -1,6 +1,8 @@
 <div align="center">
 
-<img src="assets/regimelab-logo.png" width="140" alt="RegimeLab logo">
+<div align="center">
+  <img src="assets/regimelab-logo.png" width="140" alt="RegimeLab logo">
+</div>
 
 # RegimeLab
 
