@@ -1,7 +1,7 @@
 <div align="center">
 
 <div align="center">
-  <img src="assets/regimelab-logo.png" width="140" alt="RegimeLab logo">
+  <img src="assets/Regimelab_logo.png" width="140" alt="RegimeLab logo">
 </div>
 
 # RegimeLab
