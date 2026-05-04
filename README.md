@@ -25,7 +25,6 @@ This project started as an autonomous BTC/USDT trading bot combining:
 - layered risk management
 - paper trading execution and monitoring
 
-The current focus is not hype or curve-fitting, but signal quality.
 
 After upgrading the scanner from raw trade ticks to closed 3-minute candles and adding RSI, EMA trend, and volume confirmation filters, I ran a walk-forward backtest to check whether the core Z-score signal had a stable edge.
 
